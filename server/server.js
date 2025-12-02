@@ -1,60 +1,52 @@
 const express = require('express');
 const http = require('http');
-const cors = require('cors');
 const { Server } = require('socket.io');
-const { ExpressPeerServer } = require('peer');
 
 const app = express();
 const server = http.createServer(app);
 const port = process.env.PORT || 4000;
 
-// CORS for API (optional)
-app.use(cors({
-  origin: true,
-  methods: ['GET', 'POST'],
-  credentials: true
-}));
-
-// socket.io with CORS
 const io = new Server(server, {
   cors: {
-    origin: true,
-    methods: ['GET', 'POST']
+    origin: "*",
+    methods: ["GET", "POST"]
   }
 });
 
-// PeerJS server
-const peerServer = ExpressPeerServer(server, {
-  debug: true,
-  path: '/peerjs'   // final path will be /peerjs/peerjs
+app.get("/", (req, res) => {
+  res.send("Signaling server running...");
 });
 
-// mount peer server at /peerjs
-app.use('/peerjs', peerServer);
+io.on("connection", (socket) => {
+  console.log("connected:", socket.id);
 
-// simple health route
-app.get('/', (req, res) => {
-  res.send('Remote-control signaling server is running');
-});
+  socket.on("join-room", ({ roomId, role }) => {
+    socket.join(roomId);
+    socket.data.roomId = roomId;
+    socket.data.role = role;
 
-// socket.io events
-io.on('connection', (socket) => {
-  console.log('socket connected', socket.id);
-
-  socket.on('newUser', (id, room) => {
-    socket.join(room);
-    socket.to(room).broadcast.emit('userJoined', id);
-
-    socket.on('disconnect', () => {
-      socket.to(room).broadcast.emit('userDisconnect', id);
-    });
+    socket.to(roomId).emit("peer-joined", { role });
   });
 
-  socket.on('control-event', (room, payload) => {
-    socket.to(room).emit('control-event', payload);
+  socket.on("offer", ({ roomId, offer }) => {
+    socket.to(roomId).emit("offer", { offer });
+  });
+
+  socket.on("answer", ({ roomId, answer }) => {
+    socket.to(roomId).emit("answer", { answer });
+  });
+
+  socket.on("ice-candidate", ({ roomId, candidate }) => {
+    socket.to(roomId).emit("ice-candidate", { candidate });
+  });
+
+  socket.on("control-event", ({ roomId, payload }) => {
+    socket.to(roomId).emit("control-event", payload);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("disconnected:", socket.id);
   });
 });
 
-server.listen(port, () => {
-  console.log('Server running on port ' + port);
-});
+server.listen(port, () => console.log("Server running on " + port));
