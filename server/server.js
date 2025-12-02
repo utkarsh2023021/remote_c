@@ -1,13 +1,22 @@
 // server.js
+const express = require('express');
+const http = require('http');
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: 8080 });
+
+const app = express();
+
+app.get('/', (req, res) => {
+  res.send('Remote Desktop WebSocket server is running');
+});
+
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
 const hosts = new Map();       // code -> host socket
 const controllers = new Map(); // code -> controller socket
 
 function generateCode() {
-  // 6-digit random code as string
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
 }
 
 wss.on('connection', (ws) => {
@@ -20,7 +29,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // 1) Host registration
+    // 1) Host registers and gets a code
     if (msg.type === 'register_host') {
       const code = generateCode();
       ws.role = 'host';
@@ -35,7 +44,7 @@ wss.on('connection', (ws) => {
       }));
     }
 
-    // 2) Controller wants to connect
+    // 2) Controller connects using code
     else if (msg.type === 'connect_controller') {
       const code = msg.code;
       const host = hosts.get(code);
@@ -54,16 +63,42 @@ wss.on('connection', (ws) => {
 
       console.log('Controller connected to code:', code);
 
-      // Notify both sides
       host.send(JSON.stringify({ type: 'controller_connected' }));
       ws.send(JSON.stringify({ type: 'connected', code }));
     }
 
-    // 3) Simple relay: host <-> controller
+    // 3) Screen frames: host -> controller
+    else if (msg.type === 'screen_frame') {
+      const code = ws.code;
+      if (!code || ws.role !== 'host') return;
+      const ctrl = controllers.get(code);
+      if (ctrl && ctrl.readyState === WebSocket.OPEN) {
+        ctrl.send(JSON.stringify({
+          type: 'screen_frame',
+          frame: msg.frame,   // base64 jpeg
+          width: msg.width,
+          height: msg.height
+        }));
+      }
+    }
+
+    // 4) Input events: controller -> host
+    else if (msg.type === 'input_event') {
+      const code = ws.code;
+      if (!code || ws.role !== 'controller') return;
+      const host = hosts.get(code);
+      if (host && host.readyState === WebSocket.OPEN) {
+        host.send(JSON.stringify({
+          type: 'input_event',
+          event: msg.event
+        }));
+      }
+    }
+
+    // 5) Optional relay for debugging chat
     else if (msg.type === 'relay') {
       const code = ws.code;
       if (!code) return;
-
       if (ws.role === 'host') {
         const ctrl = controllers.get(code);
         if (ctrl && ctrl.readyState === WebSocket.OPEN) {
@@ -109,4 +144,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-console.log('WebSocket server running on ws://localhost:8080');
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
+  console.log('Server listening on port', PORT);
+});
