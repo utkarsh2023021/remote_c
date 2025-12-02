@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Remote Desktop – Start</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #0f1115;
+        color: #fff;
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .container {
+        text-align: center;
+        max-width: 400px;
+    }
+
+    h1 {
+        margin-bottom: 40px;
+        font-size: 32px;
+        font-weight: 600;
+        color: #e9e9e9;
+    }
+
+    .option {
+        display: block;
+        background: #1b1e24;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        text-decoration: none;
+        color: #fff;
+        font-size: 20px;
+        font-weight: 500;
+        border: 2px solid #333;
+        transition: 0.2s ease;
+    }
+
+    .option:hover {
+        background: #252932;
+        border-color: #4a90e2;
+        transform: translateY(-3px);
+    }
+
+    .small {
+        font-size: 14px;
+        opacity: 0.7;
+        margin-top: -10px;
+        margin-bottom: 20px;
+    }
+</style>
+
+</head>
+<body>
+
+<div class="container">
+    <h1>Remote Desktop Access</h1>
+
+    <a class="option" href="host.html">
+        Share Your Screen  
+        <div class="small">(Allow someone to control your device)</div>
+    </a>
+
+    <a class="option" href="controller.html">
+        Control a Remote Computer  
+        <div class="small">(Enter a code to remotely operate another system)</div>
+    </a>
+</div>
+
+</body>
+</html>

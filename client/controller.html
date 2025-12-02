@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Remote Controller</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #status { margin-top: 10px; color: #555; }
+    #log { margin-top: 15px; border: 1px solid #ddd; padding: 10px; height: 150px; overflow-y: auto; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Controller Device</h1>
+
+  <div>
+    <input id="codeInput" placeholder="Enter host code (e.g. 123456)" />
+    <button id="connectBtn">Connect</button>
+  </div>
+
+  <div id="status">Not connected</div>
+
+  <h3>Send test message to host</h3>
+  <input id="ctrlMsg" placeholder="Type message..." />
+  <button id="sendCtrlMsg">Send</button>
+
+  <h3>Log</h3>
+  <div id="log"></div>
+
+  <script>
+    let ws;
+    const status = document.getElementById('status');
+    const logDiv = document.getElementById('log');
+
+    function log(msg) {
+      const el = document.createElement('div');
+      el.textContent = msg;
+      logDiv.appendChild(el);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    document.getElementById('connectBtn').onclick = () => {
+      const code = document.getElementById('codeInput').value.trim();
+      if (!code) {
+        alert('Enter a code from the host');
+        return;
+      }
+
+      ws = new WebSocket('ws://localhost:8080');
+
+      ws.onopen = () => {
+        log('Connected to server as controller');
+        ws.send(JSON.stringify({
+          type: 'connect_controller',
+          code
+        }));
+        status.textContent = 'Connecting to host...';
+      };
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+
+        if (msg.type === 'connected') {
+          status.textContent = 'Connected to host with code ' + msg.code;
+          log('Successfully connected to host: ' + msg.code);
+        } else if (msg.type === 'error') {
+          status.textContent = 'Error: ' + msg.message;
+          log('Error: ' + msg.message);
+        } else if (msg.type === 'relay') {
+          log('[From host] ' + msg.payload);
+        } else if (msg.type === 'host_disconnected') {
+          status.textContent = 'Host disconnected.';
+          log('Host disconnected.');
+        }
+      };
+
+      ws.onclose = () => {
+        log('WebSocket closed');
+        status.textContent = 'Disconnected';
+      };
+
+      ws.onerror = (e) => {
+        log('WebSocket error: ' + e.message);
+      };
+    };
+
+    document.getElementById('sendCtrlMsg').onclick = () => {
+      const text = document.getElementById('ctrlMsg').value;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('WebSocket not connected');
+        return;
+      }
+      ws.send(JSON.stringify({
+        type: 'relay',
+        payload: text
+      }));
+      log('[You -> host] ' + text);
+    };
+  </script>
+</body>
+</html>
