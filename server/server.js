@@ -1,150 +1,66 @@
-// server.js
 const express = require('express');
 const http = require('http');
-const WebSocket = require('ws');
+const cors = require('cors');
+const { Server } = require('socket.io');
+const { ExpressPeerServer } = require('peer');
 
 const app = express();
-
-app.get('/', (req, res) => {
-  res.send('Remote Desktop WebSocket server is running');
-});
-
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const port = process.env.PORT || 4000;
 
-const hosts = new Map();       // code -> host socket
-const controllers = new Map(); // code -> controller socket
+// CORS for API (optional)
+app.use(cors({
+  origin: [
+    'http://localhost:5173',           // local dev client (Vite or similar)
+    'https://your-client.netlify.app'  // your deployed client URL
+  ],
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 
-function generateCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
-}
+// socket.io with CORS
+const io = new Server(server, {
+  cors: {
+    origin: [
+      'http://localhost:5173',
+      'https://your-client.netlify.app'
+    ],
+    methods: ['GET', 'POST']
+  }
+});
 
-wss.on('connection', (ws) => {
-  ws.on('message', (data) => {
-    let msg;
-    try {
-      msg = JSON.parse(data.toString());
-    } catch (e) {
-      console.log('Invalid JSON:', data.toString());
-      return;
-    }
+// PeerJS server
+const peerServer = ExpressPeerServer(server, {
+  debug: true,
+  path: '/peerjs'   // final path will be /peerjs/peerjs
+});
 
-    // 1) Host registers and gets a code
-    if (msg.type === 'register_host') {
-      const code = generateCode();
-      ws.role = 'host';
-      ws.code = code;
+// mount peer server at /peerjs
+app.use('/peerjs', peerServer);
 
-      hosts.set(code, ws);
-      console.log('Host registered with code:', code);
+// simple health route
+app.get('/', (req, res) => {
+  res.send('Remote-control signaling server is running');
+});
 
-      ws.send(JSON.stringify({
-        type: 'code',
-        code
-      }));
-    }
+// socket.io events
+io.on('connection', (socket) => {
+  console.log('socket connected', socket.id);
 
-    // 2) Controller connects using code
-    else if (msg.type === 'connect_controller') {
-      const code = msg.code;
-      const host = hosts.get(code);
+  socket.on('newUser', (id, room) => {
+    socket.join(room);
+    socket.to(room).broadcast.emit('userJoined', id);
 
-      if (!host) {
-        ws.send(JSON.stringify({
-          type: 'error',
-          message: 'Invalid code or host not online'
-        }));
-        return;
-      }
-
-      ws.role = 'controller';
-      ws.code = code;
-      controllers.set(code, ws);
-
-      console.log('Controller connected to code:', code);
-
-      host.send(JSON.stringify({ type: 'controller_connected' }));
-      ws.send(JSON.stringify({ type: 'connected', code }));
-    }
-
-    // 3) Screen frames: host -> controller
-    else if (msg.type === 'screen_frame') {
-      const code = ws.code;
-      if (!code || ws.role !== 'host') return;
-      const ctrl = controllers.get(code);
-      if (ctrl && ctrl.readyState === WebSocket.OPEN) {
-        ctrl.send(JSON.stringify({
-          type: 'screen_frame',
-          frame: msg.frame,   // base64 jpeg
-          width: msg.width,
-          height: msg.height
-        }));
-      }
-    }
-
-    // 4) Input events: controller -> host
-    else if (msg.type === 'input_event') {
-      const code = ws.code;
-      if (!code || ws.role !== 'controller') return;
-      const host = hosts.get(code);
-      if (host && host.readyState === WebSocket.OPEN) {
-        host.send(JSON.stringify({
-          type: 'input_event',
-          event: msg.event
-        }));
-      }
-    }
-
-    // 5) Optional relay for debugging chat
-    else if (msg.type === 'relay') {
-      const code = ws.code;
-      if (!code) return;
-      if (ws.role === 'host') {
-        const ctrl = controllers.get(code);
-        if (ctrl && ctrl.readyState === WebSocket.OPEN) {
-          ctrl.send(JSON.stringify({
-            type: 'relay',
-            from: 'host',
-            payload: msg.payload
-          }));
-        }
-      } else if (ws.role === 'controller') {
-        const host = hosts.get(code);
-        if (host && host.readyState === WebSocket.OPEN) {
-          host.send(JSON.stringify({
-            type: 'relay',
-            from: 'controller',
-            payload: msg.payload
-          }));
-        }
-      }
-    }
+    socket.on('disconnect', () => {
+      socket.to(room).broadcast.emit('userDisconnect', id);
+    });
   });
 
-  ws.on('close', () => {
-    const code = ws.code;
-    if (!code) return;
-
-    if (ws.role === 'host') {
-      console.log('Host disconnected:', code);
-      hosts.delete(code);
-      const ctrl = controllers.get(code);
-      if (ctrl) {
-        ctrl.send(JSON.stringify({ type: 'host_disconnected' }));
-        controllers.delete(code);
-      }
-    } else if (ws.role === 'controller') {
-      console.log('Controller disconnected:', code);
-      controllers.delete(code);
-      const host = hosts.get(code);
-      if (host) {
-        host.send(JSON.stringify({ type: 'controller_disconnected' }));
-      }
-    }
+  socket.on('control-event', (room, payload) => {
+    socket.to(room).emit('control-event', payload);
   });
 });
 
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-  console.log('Server listening on port', PORT);
+server.listen(port, () => {
+  console.log('Server running on port ' + port);
 });

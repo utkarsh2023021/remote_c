@@ -1,78 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Remote Desktop – Start</title>
-
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #0f1115;
-        color: #fff;
-        margin: 0;
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .container {
-        text-align: center;
-        max-width: 400px;
-    }
-
-    h1 {
-        margin-bottom: 40px;
-        font-size: 32px;
-        font-weight: 600;
-        color: #e9e9e9;
-    }
-
-    .option {
-        display: block;
-        background: #1b1e24;
-        padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        text-decoration: none;
-        color: #fff;
-        font-size: 20px;
-        font-weight: 500;
-        border: 2px solid #333;
-        transition: 0.2s ease;
-    }
-
-    .option:hover {
-        background: #252932;
-        border-color: #4a90e2;
-        transform: translateY(-3px);
-    }
-
-    .small {
-        font-size: 14px;
-        opacity: 0.7;
-        margin-top: -10px;
-        margin-bottom: 20px;
-    }
-</style>
-
+  <meta charset="UTF-8">
+  <title>Remote Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
+  <div class="top-bar">
+    <div>Room: <span id="roomSpan"></span></div>
+    <div>Role: <span id="roleSpan"></span></div>
+  </div>
 
-<div class="container">
-    <h1>Remote Desktop Access</h1>
+  <div class="info-bar">
+    <p>
+      Use same <code>room</code> on two devices:
+      <br>
+      <strong>Host:</strong> <code>?room=ROOM_ID&role=host</code> <br>
+      <strong>Controller:</strong> <code>?room=ROOM_ID&role=controller</code>
+    </p>
+  </div>
 
-    <a class="option" href="host.html">
-        Share Your Screen
-        <div class="small">(Allow someone you trust to control your device)</div>
-    </a>
+  <div id="videoDiv" class="video-container"></div>
 
-    <a class="option" href="controller.html">
-        Control a Remote Computer
-        <div class="small">(Enter a code to remotely access another system)</div>
-    </a>
-</div>
+  <!-- socket.io client FROM YOUR SERVER -->
+  <script src="https://remote-signal.onrender.com/socket.io/socket.io.js"></script>
 
+  <!-- PeerJS client (CDN is easiest) -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <!-- Your app logic -->
+  <script src="./index.js"></script>
 </body>
 </html>
