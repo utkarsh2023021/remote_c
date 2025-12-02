@@ -8,28 +8,59 @@
 </head>
 <body>
   <div class="top-bar">
-    <div>Room: <span id="roomSpan"></span></div>
-    <div>Role: <span id="roleSpan"></span></div>
+    <div>Room: <span id="roomSpan">-</span></div>
+    <div>Role: <span id="roleSpan">-</span></div>
   </div>
 
-  <div class="info-bar">
-    <p>
-      Use same <code>room</code> on two devices:
-      <br>
-      <strong>Host:</strong> <code>?room=ROOM_ID&role=host</code> <br>
-      <strong>Controller:</strong> <code>?room=ROOM_ID&role=controller</code>
-    </p>
+  <div id="setupContainer" class="setup-container">
+    <h2>Remote Control</h2>
+    <p class="subtitle">Choose whether you are the Host (shares screen) or the Controller (controls).</p>
+
+    <div class="setup-grid">
+      <!-- HOST -->
+      <div class="card">
+        <h3>👨‍💻 Host</h3>
+        <p>Runs on the device whose screen you want to share.</p>
+
+        <label class="label">Room ID (auto-generated)</label>
+        <input id="hostRoomId" class="input" type="text" readonly>
+
+        <button id="hostStartBtn" class="btn primary">Start as Host</button>
+
+        <div id="hostShareSection" class="share-section hidden">
+          <p class="label">Share this with controller:</p>
+          <div class="share-row">
+            <input id="hostShareUrl" class="input" type="text" readonly>
+            <button id="copyUrlBtn" class="btn small">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTROLLER -->
+      <div class="card">
+        <h3>🖱️ Controller</h3>
+        <p>Runs on the device that will control the host’s screen.</p>
+
+        <label class="label">Room ID</label>
+        <input id="controllerRoomId" class="input" type="text" placeholder="Paste Room ID here">
+
+        <button id="controllerStartBtn" class="btn secondary">Start as Controller</button>
+      </div>
+    </div>
   </div>
 
-  <div id="videoDiv" class="video-container"></div>
+  <div id="videoSection" class="video-section hidden">
+    <div id="videoDiv" class="video-container"></div>
+  </div>
 
-  <!-- socket.io client FROM YOUR SERVER -->
-  <script src="https://remote-signal.onrender.com/socket.io/socket.io.js"></script>
+  <!-- socket.io client from your signaling server -->
+  <!-- CHANGE this to your real signaling server domain -->
+  <script src="https://remote-c.onrender.com/socket.io/socket.io.js"></script>
 
-  <!-- PeerJS client (CDN is easiest) -->
+  <!-- PeerJS from CDN -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
-  <!-- Your app logic -->
+  <!-- App logic -->
   <script src="./index.js"></script>
 </body>
 </html>

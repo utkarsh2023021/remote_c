@@ -10,10 +10,7 @@ const port = process.env.PORT || 4000;
 
 // CORS for API (optional)
 app.use(cors({
-  origin: [
-    'http://localhost:5173',           // local dev client (Vite or similar)
-    'https://your-client.netlify.app'  // your deployed client URL
-  ],
+  origin: true,
   methods: ['GET', 'POST'],
   credentials: true
 }));
