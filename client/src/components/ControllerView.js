@@ -87,7 +87,7 @@ export default function ControllerView({ roomId }) {
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "contain", // Ensures full screen share is visible
+          objectFit: "contain", 
           cursor: "crosshair",
         }}
       />

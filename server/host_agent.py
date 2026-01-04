@@ -2,14 +2,14 @@ import socketio
 import pyautogui
 import time
 
-# ================== CONFIG ==================
+
 SERVER_URL = "https://remote-c.onrender.com"
 
 # Safety & smoothness
 pyautogui.FAILSAFE = False
-pyautogui.PAUSE = 0.01  # small human-like delay
+pyautogui.PAUSE = 0.001  # small human-like delay
 
-# ============================================
+
 
 sio = socketio.Client()
 
@@ -50,7 +50,7 @@ def on_control(p):
 
         # -------- SCROLL --------
         elif p["type"] == "scroll":
-            # amount should already be OS-scaled (±120 typical)
+            #  OS-scaled (±120 typical)
             pyautogui.scroll(int(p["amount"]))
 
         # -------- KEY PRESS --------
@@ -61,8 +61,8 @@ def on_control(p):
         print("⚠️ Control error:", e)
 
 
-# Connect to signaling server
+
 sio.connect(SERVER_URL)
 
-# Keep agent alive
+# Keepping this alive
 sio.wait()

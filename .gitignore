@@ -2,3 +2,8 @@
 client/node_modules/
 server/node_modules/
 server/.env
+server/dist
+server/build
+.DS_Store
+Thumbs.db
+*.exe
