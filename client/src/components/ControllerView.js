@@ -1,120 +1,86 @@
-// src/components/ControllerView.js
-import React, { useEffect, useRef, useState } from "react";
-import io from "socket.io-client";
+import { useEffect, useRef } from "react";
+import { io } from "socket.io-client";
 
 const SIGNAL = "http://localhost:4000";
 
 export default function ControllerView({ roomId }) {
-  const [socket] = useState(() => io(SIGNAL, { transports: ["websocket"] }));
-  const pcRef = useRef(null);
-  const remoteVideo = useRef(null);
-  const createdOfferRef = useRef(false);
+  const socket = useRef();
+  const pc = useRef();
+  const video = useRef();
+
+  const remoteSet = useRef(false);
+  const iceQueue = useRef([]);
 
   useEffect(() => {
-    const pc = new RTCPeerConnection({
+    socket.current = io(SIGNAL);
+    socket.current.emit("join-controller", roomId);
+
+    pc.current = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
-    pcRef.current = pc;
 
-    socket.emit("join-room", { roomId, role: "controller" });
-
-    pc.ontrack = (e) => {
-      if (remoteVideo.current) {
-        remoteVideo.current.srcObject = e.streams[0];
-        remoteVideo.current.onloadedmetadata = () => remoteVideo.current.play().catch(() => {});
-      }
+    pc.current.ontrack = (e) => {
+      video.current.srcObject = e.streams[0];
     };
 
-    pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        socket.emit("ice-candidate", { roomId, candidate: e.candidate });
-      }
+    pc.current.onicecandidate = (e) => {
+      if (e.candidate)
+        socket.current.emit("ice", {
+          room: roomId,
+          candidate: e.candidate,
+        });
     };
 
-    socket.on("room-info", ({ participants }) => {
-      // participants is array of { socketId, role }
-      const hasHost = participants.some((p) => p.role === "host");
-      if (hasHost && !createdOfferRef.current) {
-        createOffer();
-      }
+    socket.current.on("offer", async (offer) => {
+      if (remoteSet.current) return;
+
+      await pc.current.setRemoteDescription(offer);
+      remoteSet.current = true;
+
+      const answer = await pc.current.createAnswer();
+      await pc.current.setLocalDescription(answer);
+
+      socket.current.emit("answer", {
+        room: roomId,
+        answer,
+      });
+
+      iceQueue.current.forEach((c) =>
+        pc.current.addIceCandidate(c)
+      );
+      iceQueue.current = [];
     });
 
-    socket.on("peer-joined", ({ role }) => {
-      if (role === "host" && !createdOfferRef.current) {
-        createOffer();
+    socket.current.on("ice", (candidate) => {
+      if (remoteSet.current) {
+        pc.current.addIceCandidate(candidate);
+      } else {
+        iceQueue.current.push(candidate);
       }
     });
-
-    socket.on("answer", async ({ answer }) => {
-      try {
-        await pc.setRemoteDescription(answer);
-      } catch (err) {
-        console.error("Error setting remote description (answer):", err);
-      }
-    });
-
-    socket.on("ice-candidate", ({ candidate }) => {
-      try {
-        pc.addIceCandidate(candidate);
-      } catch (e) {
-        console.warn("Add candidate error", e);
-      }
-    });
-
-    return () => {
-      pc.close();
-      socket.disconnect();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
-  const createOffer = async () => {
-    if (!pcRef.current) return;
-    if (createdOfferRef.current) return;
-    createdOfferRef.current = true;
-
-    try {
-      // Ensure SDP expects a video from host
-      pcRef.current.addTransceiver("video", { direction: "recvonly" });
-
-      const offer = await pcRef.current.createOffer();
-      await pcRef.current.setLocalDescription(offer);
-      socket.emit("offer", { roomId, offer });
-    } catch (err) {
-      console.error("Error creating offer:", err);
-    }
-  };
-
-  const sendControl = (payload) => {
-    socket.emit("control-event", { roomId, payload });
-  };
+  const send = (payload) =>
+    socket.current.emit("control", {
+      room: roomId,
+      payload,
+    });
 
   return (
-    <div style={styles.container}>
-      <h3 style={{ marginTop: 0 }}>Remote Screen (Room: {roomId})</h3>
-      <video
-        ref={remoteVideo}
-        style={styles.video}
-        autoPlay
-        playsInline
-        onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const xRel = (e.clientX - rect.left) / rect.width;
-          const yRel = (e.clientY - rect.top) / rect.height;
-          sendControl({ type: "mouse", action: "move", x: xRel, y: yRel });
-        }}
-        onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const xRel = (e.clientX - rect.left) / rect.width;
-          const yRel = (e.clientY - rect.top) / rect.height;
-          sendControl({ type: "mouse", action: "click", x: xRel, y: yRel, button: e.button });
-        }}
-      />
-    </div>
+    <video
+      ref={video}
+      autoPlay
+      playsInline
+      onMouseMove={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        send({
+          type: "move",
+          x: (e.clientX - r.left) / r.width,
+          y: (e.clientY - r.top) / r.height,
+        });
+      }}
+      onClick={() => send({ type: "click" })}
+      style={{ width: "100vw", height: "100vh" }}
+    />
   );
 }
-
-const styles = {
-  container: { padding: 16 },
-  video: { width: "100%", height: "70vh", background: "#000", borderRadius: 10, objectFit: "contain" },
-};
