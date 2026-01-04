@@ -7,3 +7,16 @@ server/build
 .DS_Store
 Thumbs.db
 *.exe
+
+
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.spec
+
+
+dist/
+build/
+*.exe
